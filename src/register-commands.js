@@ -1,15 +1,6 @@
 import 'dotenv/config';
 import { REST, Routes, SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 
-const roleOptions = Array.from({ length: 10 }, (_, index) =>
-  new SlashCommandBuilder().addRoleOption(option =>
-    option
-      .setName(`role-${index + 1}`)
-      .setDescription(`Role option ${index + 1}`)
-      .setRequired(index === 0),
-  ),
-);
-
 const command = new SlashCommandBuilder()
   .setName('role-panel')
   .setDescription('Create a self-assignable role dropdown panel')
@@ -23,14 +14,21 @@ const command = new SlashCommandBuilder()
       )
       .addStringOption(option =>
         option.setName('title').setDescription('Panel title').setRequired(true).setMaxLength(256),
-      )
+      );
+
+    for (let index = 1; index <= 10; index += 1) {
+      subcommand.addRoleOption(option => option
+        .setName(`role-${index}`)
+        .setDescription(`Role option ${index}`)
+        .setRequired(index === 1));
+    }
+
+    subcommand
       .addStringOption(option =>
         option.setName('description').setDescription('Optional panel description').setMaxLength(4000),
       )
       .addStringOption(option =>
         option.setName('color').setDescription('Embed colour, e.g. #5865F2').setMaxLength(7));
-
-    for (const roleOption of roleOptions) subcommand.addRoleOption(roleOption.options[0].toJSON());
     return subcommand;
   });
 
