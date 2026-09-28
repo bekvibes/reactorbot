@@ -9,6 +9,7 @@ import {
   ActionRowBuilder,
   PermissionFlagsBits,
   ChannelType,
+  MessageFlags,
 } from 'discord.js';
 
 const DEFAULT_COLOR = 0x5865F2;
@@ -41,14 +42,16 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.isChatInputCommand() && interaction.commandName === 'role-panel') {
       if (interaction.options.getSubcommand() !== 'create') return;
 
+      
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageRoles)) {
-        await interaction.reply({ content: 'You need **Manage Roles** to create a role panel.', ephemeral: true });
+        await interaction.editReply({ content: 'You need **Manage Roles** to create a role panel.' });
         return;
       }
 
       const channel = interaction.options.getChannel('channel', true);
       if (!channel.isTextBased() || channel.type === ChannelType.DM) {
-        await interaction.reply({ content: 'Choose a server text channel where I can post messages.', ephemeral: true });
+        await interaction.editReply({ content: 'Choose a server text channel where I can post messages.' });
         return;
       }
 
@@ -58,15 +61,15 @@ client.on(Events.InteractionCreate, async interaction => {
       const color = parseColor(interaction.options.getString('color'));
 
       if (color === null) {
-        await interaction.reply({ content: 'Use a six-digit hex colour, such as `#5865F2`.', ephemeral: true });
+        await interaction.editReply({ content: 'Use a six-digit hex colour, such as `#5865F2`.' });
         return;
       }
       if (uniqueRoles.length === 0) {
-        await interaction.reply({ content: 'Add at least one role.', ephemeral: true });
+        await interaction.editReply({ content: 'Add at least one role.' });
         return;
       }
       if (uniqueRoles.some(role => role.managed || role.id === interaction.guild.id)) {
-        await interaction.reply({ content: 'Panels cannot include integration-managed or `@everyone` roles.', ephemeral: true });
+        await interaction.editReply({ content: 'Panels cannot include integration-managed or `@everyone` roles.' });
         return;
       }
 
@@ -90,11 +93,13 @@ client.on(Events.InteractionCreate, async interaction => {
         ));
 
       await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(menu)] });
-      await interaction.reply({ content: `Role panel sent to ${channel}.`, ephemeral: true });
+      await interaction.editReply({ content: `Role panel sent to ${channel}.` });
       return;
     }
 
     if (!interaction.isStringSelectMenu() || !interaction.customId.startsWith(PANEL_PREFIX)) return;
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     const [, payload] = interaction.customId.split(PANEL_PREFIX);
     const [ids] = payload.split(':');
     const allowedRoleIds = ids.split('.');
@@ -114,16 +119,16 @@ client.on(Events.InteractionCreate, async interaction => {
       toAdd.length && `added ${toAdd.map(id => `<@&${id}>`).join(', ')}`,
       toRemove.length && `removed ${toRemove.map(id => `<@&${id}>`).join(', ')}`,
     ].filter(Boolean);
-    await interaction.reply({
+    await interaction.editReply({
       content: changes.length ? `Roles updated: ${changes.join('; ')}.` : 'Your role selection is already up to date.',
-      ephemeral: true,
     });
   } catch (error) {
     console.error(error);
-    const response = { content: 'I could not update the panel or roles. Check that I can view the channel and that my role is above the panel roles.', ephemeral: true };
+    const response = { content: 'I could not update the panel or roles. Check that I can view the channel and that my role is above the panel roles.' };
     if (interaction.isRepliable()) {
-      if (interaction.replied || interaction.deferred) await interaction.followUp(response);
-      else await interaction.reply(response);
+      if (interaction.deferred) await interaction.editReply(response).catch(() => {});
+      else if (interaction.replied) await interaction.followUp({ ...response, flags: MessageFlags.Ephemeral }).catch(() => {});
+      else await interaction.reply({ ...response, flags: MessageFlags.Ephemeral }).catch(() => {});
     }
   }
 });
