@@ -24,9 +24,9 @@ function parseColor(value) {
   return Number.parseInt(normalized, 16);
 }
 
-function makePanelId(roleIds) {
-  // Role IDs fit safely in a custom ID. A random suffix lets duplicate panels coexist.
-  return `${PANEL_PREFIX}${roleIds.join('.')}:${Date.now().toString(36)}`;
+function makePanelId() {
+  // Role options are read directly from the dropdown interaction, keeping IDs short.
+  return `${PANEL_PREFIX}${crypto.randomUUID()}`;
 }
 
 const client = new Client({
@@ -84,7 +84,7 @@ client.on(Events.InteractionCreate, async interaction => {
         .setFooter({ text: 'Select roles below to add or remove them' })
         .setTimestamp();
       const menu = new StringSelectMenuBuilder()
-        .setCustomId(makePanelId(uniqueRoles.map(role => role.id)))
+        .setCustomId(makePanelId())
         .setPlaceholder('Choose your roles…')
         .setMinValues(0)
         .setMaxValues(uniqueRoles.length)
@@ -100,9 +100,7 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!interaction.isStringSelectMenu() || !interaction.customId.startsWith(PANEL_PREFIX)) return;
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const [, payload] = interaction.customId.split(PANEL_PREFIX);
-    const [ids] = payload.split(':');
-    const allowedRoleIds = ids.split('.');
+    const allowedRoleIds = interaction.component.options.map(option => option.value);
     const selectedIds = interaction.values.filter(id => allowedRoleIds.includes(id));
     const member = await interaction.guild.members.fetch(interaction.user.id);
     const assignable = allowedRoleIds.filter(id => {
